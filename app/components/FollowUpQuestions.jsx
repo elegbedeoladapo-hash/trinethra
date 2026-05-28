@@ -25,7 +25,7 @@ export default function FollowUpQuestions({ questions }) {
           >
             {/* Question number and text */}
             <div className="flex gap-3 mb-3">
-              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">
+              <span className="shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">
                 {index + 1}
               </span>
               <p className="text-sm font-medium text-gray-800 leading-relaxed">
