@@ -1,173 +1,126 @@
-Trinethra — Supervisor Feedback Analyzer
-A local AI-powered web application built for DeepThought’s Trinethra module.
+<div align="center">
 
-The tool analyzes supervisor feedback transcripts and generates a structured performance assessment draft for psychology interns to review and finalize.
+# Trinethra — AI Supervisor Feedback Analyzer
 
-What It Does
-A psychology intern pastes a supervisor call transcript into the app.
+**Turn raw feedback transcripts into structured performance assessments — instantly.**
 
-The app sends the transcript to a local LLM (Ollama) and returns:
+![Next.js](https://img.shields.io/badge/Next.js-black?style=flat&logo=next.js)
+![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=flat&logo=javascript&logoColor=black)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind-38B2AC?style=flat&logo=tailwind-css&logoColor=white)
+![Ollama](https://img.shields.io/badge/Ollama-Llama%203.2-grey?style=flat)
+![Local LLM](https://img.shields.io/badge/LLM-Local%20Inference-orange?style=flat)
 
-Performance Score (1–10) — with rubric-aligned justification and confidence
-Extracted Evidence — transcript quotes tagged as positive, negative, or neutral
-KPI Mapping — mapping supervisor language to one of the 8 business KPIs
-Gap Analysis — which assessment dimensions were not covered
-Suggested Follow-up Questions — targeted to identified gaps
-The AI generates a draft.
-The human intern reviews, edits, and decides.
-The tool assists — it does not replace judgment.
+</div>
 
-Architecture
-text
+---
 
-Browser (Next.js Frontend)
-        ↓
-Next.js API Route (/api/analyze)
-        ↓
-Ollama (localhost:11434)
-        ↓
-llama3.2 model (runs locally)
-Stack
-Frontend — Next.js (App Router) + Tailwind CSS
-Backend — Next.js API Route
-LLM — Ollama running llama3.2 locally
-Parser — 3-stage JSON fallback system
-No cloud APIs — fully local inference
-All transcript data stays on the user’s machine.
+## What it does
 
-Setup Instructions
-Prerequisites
-Node.js 18+
-Ollama installed (ollama.com)
-1. Clone the repo
-Bash
+Trinethra takes a supervisor feedback transcript and generates a structured, rubric-aligned performance assessment draft using a locally running AI model — no cloud API costs, no data leaving your machine.
 
+Built for HR teams and organisations that need consistent, structured performance reviews but want to keep sensitive employee data private and on-premise.
+
+---
+
+## Why this is different
+
+Most AI tools send your data to OpenAI or Anthropic servers. Trinethra runs inference **completely locally** using Ollama — meaning:
+
+- 🔒 **Zero data exposure** — employee transcripts never leave your machine
+- 💸 **Zero API costs** — no per-token billing
+- ⚡ **Offline capable** — works without internet after setup
+- 🏢 **Enterprise-ready privacy** — suitable for HR and legal compliance
+
+---
+
+## Features
+
+- 📝 **Transcript input** — paste any supervisor feedback transcript
+- 🤖 **Local LLM processing** — powered by Llama 3.2 via Ollama
+- 📊 **Structured output** — rubric-aligned assessment with scores and comments
+- 🔄 **Fallback logic** — custom JSON parser handles imperfect LLM output gracefully
+- 🎨 **Clean UI** — built with Next.js App Router and Tailwind CSS
+- ⚙️ **API route architecture** — clean separation of frontend and AI processing
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 14 (App Router) |
+| Language | JavaScript |
+| Styling | Tailwind CSS |
+| AI Model | Llama 3.2 via Ollama |
+| LLM Integration | Local HTTP API (localhost:11434) |
+| Output Handling | Custom JSON parser with fallback logic |
+
+---
+
+## How it works
+
+User pastes transcript
+↓
+Next.js API Route receives request
+↓
+Structured prompt sent to Ollama (localhost:11434)
+↓
+Llama 3.2 generates JSON assessment
+↓
+Custom parser validates + sanitises output
+↓
+Fallback logic handles edge cases
+↓
+
+---
+
+## Quick Start
+
+### Prerequisites
+You must have [Ollama](https://ollama.ai) installed and running locally.
+
+```bash
+# Install Ollama (Mac/Linux)
+curl -fsSL https://ollama.ai/install.sh | sh
+
+# Pull the Llama 3.2 model
+ollama pull llama3.2
+
+# Confirm Ollama is running
+ollama serve
+```
+
+### Run the app
+
+```bash
 git clone https://github.com/elegbedeoladapo-hash/trinethra.git
 cd trinethra
-2. Install dependencies
-Bash
-
 npm install
-3. Install and prepare Ollama
-Bash
-
-ollama pull llama3.2
-4. Start the app
-Bash
-
 npm run dev
-Open:
+```
 
-text
+Open [http://localhost:3000](http://localhost:3000)
 
-http://localhost:3000
-Why llama3.2?
-~2GB model — runs on 8GB RAM laptops
-Reliable structured JSON generation
-Strong instruction following
-Fully local, no API key required
-Correctness was prioritized over model size.
+> Ollama must be running on port 11434 before starting the app.
 
-Prompt Engineering Decisions
-1️⃣ Single Prompt vs Multi‑Prompt
-I chose a single structured prompt for MVP:
+---
 
-Lower latency (one API call)
-Easier debugging
-Simpler architecture
-Faster iteration within 48-hour constraint
-Tradeoff:
+## Architecture Decision — Why local LLM?
 
-Multi-step chaining could improve edge-case reasoning
-Left as future improvement
-2️⃣ Rubric Boundary Enforcement (6 vs 7)
-The most critical scoring boundary is between:
+Performance data is among the most sensitive information in any organisation. Sending employee feedback transcripts to a third-party API creates:
 
-6 → Reliable Execution
-7 → Independent Problem Identification
-To ensure stability:
+- Legal liability under GDPR and similar regulations
+- Risk of sensitive data being used for model training
+- Per-token costs that scale poorly across large HR teams
 
-Prompt encodes strict boundary logic
-Backend enforces deterministic caps for:
-Lack of independent pushback
-Dependency trap language (e.g., “my right hand”)
-This prevents over-scoring from LLM variability.
+Running Llama 3.2 locally via Ollama solves all three problems simultaneously. The tradeoff is setup complexity — but for any organisation handling real employee data, that tradeoff is the correct one.
 
-3️⃣ Structured Output Reliability
-LLMs sometimes return malformed JSON.
+---
 
-The parser implements:
-
-Direct JSON parse
-Markdown stripping fallback
-Regex extraction fallback
-Temperature is set to 0.1 to reduce format variance.
-
-4️⃣ Showing Uncertainty (Automation Bias Prevention)
-To prevent blind trust:
-
-Every score includes a confidence label
-A banner explicitly states: “AI-generated draft”
-Evidence is shown alongside justification
-The intern sees reasoning, not just a number.
-
-5️⃣ Gap Detection (Reasoning About Absence)
-Gap detection requires identifying what was not mentioned.
-
-The prompt explicitly checks four assessment dimensions:
-
-Driving Execution
-Systems Building
-KPI Impact
-Change Management
-Missing dimensions are surfaced with targeted follow-up questions.
-
-Design Challenges Tackled
-✅ Challenge 2 — Structured Output Reliability
-✅ Challenge 4 — Showing Uncertainty
-✅ Challenge 5 — Gap Detection
-
-What I Would Improve With More Time
-Transcript ↔ Evidence Linking
-
-Hover over evidence card → highlight source text
-Multi-step Prompt Chain
-
-Separate extraction, scoring, and gap reasoning
-Editable Draft Mode
-
-Allow intern to modify AI output before finalizing
-Confidence Calibration
-
-Show which rubric signals were detected vs missing
-Transcript History
-
-Track Fellow progress across multiple calls
-Project Structure
-text
-
-trinethra/
-├── app/
-│   ├── api/analyze/route.js
-│   ├── components/
-│   │   ├── TranscriptPanel.jsx
-│   │   ├── AnalysisResults.jsx
-│   │   ├── ScoreCard.jsx
-│   │   ├── EvidenceList.jsx
-│   │   ├── KpiMapping.jsx
-│   │   ├── GapAnalysis.jsx
-│   │   └── FollowUpQuestions.jsx
-│   ├── globals.css
-│   ├── layout.js
-│   └── page.js
-├── lib/
-│   ├── prompt.js
-│   └── parser.js
-├── data/
-│   ├── rubric.json
-│   └── sample-transcripts.json
-└── README.md
-
-
-
+<div align="center">
+Built by <a href="https://my-portfolio-y33e.vercel.app">Oladapo Elegbede</a> · 
+<a href="mailto:elegbedeoladapo@gmail.com">elegbedeoladapo@gmail.com</a> · 
+<a href="https://linkedin.com/in/oladapo-elegbede">LinkedIn</a>
+</div>
+Structured assessment rendered to user
 
