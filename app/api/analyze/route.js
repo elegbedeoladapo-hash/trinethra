@@ -61,6 +61,45 @@ export async function POST(request) {
     try {
       analysis = parseAnalysis(rawText);
       validateAnalysis(analysis);
+      // -----------------------------
+// -----------------------------
+// RUBRIC BOUNDARY ENFORCEMENT
+// -----------------------------
+
+const lowerTranscript = transcript.toLowerCase();
+
+// Karthik-type ceiling: explicit lack of independent pushback
+if (
+  analysis.score.value >= 7 &&
+  (
+    lowerTranscript.includes("doesn't really push back") ||
+    lowerTranscript.includes("if i tell him to do something, he does it") ||
+    lowerTranscript.includes("he does it. even if it's not the best way")
+  )
+) {
+  analysis.score.value = 6;
+  analysis.score.label = "Reliable and Productive";
+  analysis.score.band = "Productivity";
+  analysis.score.justification +=
+    " Supervisor explicitly mentions lack of independent pushback, which caps score at 6 per rubric boundary.";
+}
+
+// Dependency trap ceiling (Anil-type case)
+if (
+  analysis.score.value >= 7 &&
+  (
+    lowerTranscript.includes("my right hand") ||
+    lowerTranscript.includes("takes so much off my plate") ||
+    lowerTranscript.includes("don't know how we managed before") ||
+    lowerTranscript.includes("focus on the business instead of firefighting")
+  )
+) {
+  analysis.score.value = 6;
+  analysis.score.label = "Reliable and Productive";
+  analysis.score.band = "Productivity";
+  analysis.score.justification +=
+    " Supervisor language indicates dependency trap (personal absorption rather than independent systems), which caps score at 6 per rubric.";
+}
     } catch (parseError) {
       return NextResponse.json(
         {

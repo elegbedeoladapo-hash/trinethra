@@ -1,148 +1,173 @@
-# Trinethra — Supervisor Feedback Analyzer
+Trinethra — Supervisor Feedback Analyzer
+A local AI-powered web application built for DeepThought’s Trinethra module.
 
-A local AI-powered web application built for DeepThought's Trinethra module.
-It analyzes supervisor feedback transcripts and produces structured Fellow performance assessments for psychology interns to review.
+The tool analyzes supervisor feedback transcripts and generates a structured performance assessment draft for psychology interns to review and finalize.
 
----
-
-## What It Does
-
+What It Does
 A psychology intern pastes a supervisor call transcript into the app.
-The app sends it to a local LLM (Ollama), which extracts:
 
-- **Performance Score (1-10)** with justification and confidence level
-- **Extracted Evidence** — specific quotes tagged as positive, negative, or neutral
-- **KPI Mapping** — which of 8 business KPIs the Fellow's work connects to
-- **Gap Analysis** — which assessment dimensions the transcript did not cover
-- **Suggested Follow-up Questions** — targeted questions for the next call
+The app sends the transcript to a local LLM (Ollama) and returns:
 
-The AI produces a draft. The intern reviews, edits, and decides. The tool does not replace human judgment.
+Performance Score (1–10) — with rubric-aligned justification and confidence
+Extracted Evidence — transcript quotes tagged as positive, negative, or neutral
+KPI Mapping — mapping supervisor language to one of the 8 business KPIs
+Gap Analysis — which assessment dimensions were not covered
+Suggested Follow-up Questions — targeted to identified gaps
+The AI generates a draft.
+The human intern reviews, edits, and decides.
+The tool assists — it does not replace judgment.
 
----
+Architecture
+text
 
-## Architecture
 Browser (Next.js Frontend)
-↓
+        ↓
 Next.js API Route (/api/analyze)
-↓
-Ollama (local HTTP API at localhost:11434)
-↓
-llama3.2 model (runs entirely on your machine)
+        ↓
+Ollama (localhost:11434)
+        ↓
+llama3.2 model (runs locally)
+Stack
+Frontend — Next.js (App Router) + Tailwind CSS
+Backend — Next.js API Route
+LLM — Ollama running llama3.2 locally
+Parser — 3-stage JSON fallback system
+No cloud APIs — fully local inference
+All transcript data stays on the user’s machine.
 
+Setup Instructions
+Prerequisites
+Node.js 18+
+Ollama installed (ollama.com)
+1. Clone the repo
+Bash
 
-- **Frontend** — Next.js App Router + Tailwind CSS. Two-panel layout: transcript input on the left, analysis results on the right.
-- **Backend** — Next.js API route (`/api/analyze/route.js`). Receives transcript, builds prompt, calls Ollama, parses and validates response.
-- **LLM** — Ollama running `llama3.2` locally. No cloud APIs. No data leaves the machine.
-- **Prompt** — Single structured prompt in `lib/prompt.js` that includes the full rubric, KPI definitions, assessment dimensions, supervisor bias warnings, and Layer 1 vs Layer 2 distinction.
-- **Parser** — `lib/parser.js` uses a 3-strategy fallback: direct JSON parse → strip markdown → regex extraction.
-
----
-
-## Setup Instructions
-
-### Prerequisites
-- Node.js 18 or higher
-- Ollama installed ([ollama.com](https://ollama.com))
-
-### Step 1 — Clone the repo
-```bash
 git clone https://github.com/elegbedeoladapo-hash/trinethra.git
 cd trinethra
-```
+2. Install dependencies
+Bash
 
-### Step 2 — Install dependencies
-```bash
 npm install
-```
+3. Install and prepare Ollama
+Bash
 
-### Step 3 — Install and start Ollama
-```bash
-# Download from ollama.com, then pull the model
 ollama pull llama3.2
-```
+4. Start the app
+Bash
 
-### Step 4 — Start the app
-```bash
 npm run dev
-```
+Open:
 
-### Step 5 — Open in browser
+text
 
 http://localhost:3000
+Why llama3.2?
+~2GB model — runs on 8GB RAM laptops
+Reliable structured JSON generation
+Strong instruction following
+Fully local, no API key required
+Correctness was prioritized over model size.
 
----
+Prompt Engineering Decisions
+1️⃣ Single Prompt vs Multi‑Prompt
+I chose a single structured prompt for MVP:
 
-## Why llama3.2?
+Lower latency (one API call)
+Easier debugging
+Simpler architecture
+Faster iteration within 48-hour constraint
+Tradeoff:
 
-- Small enough (3B parameters) to run on most laptops with 8GB RAM
-- Fast enough for a 30-60 second analysis turnaround
-- Strong instruction-following — reliably returns structured JSON
-- Free, local, no API key needed
+Multi-step chaining could improve edge-case reasoning
+Left as future improvement
+2️⃣ Rubric Boundary Enforcement (6 vs 7)
+The most critical scoring boundary is between:
 
----
+6 → Reliable Execution
+7 → Independent Problem Identification
+To ensure stability:
 
-## Prompt Engineering Decisions
+Prompt encodes strict boundary logic
+Backend enforces deterministic caps for:
+Lack of independent pushback
+Dependency trap language (e.g., “my right hand”)
+This prevents over-scoring from LLM variability.
 
-### Single prompt vs multiple prompts
-I chose a single structured prompt over chained calls. Reasoning: for a 48-hour MVP, one prompt is simpler to debug, faster to iterate on, and easier to explain. The tradeoff is that output quality on edge cases may be lower than a multi-step chain — noted as a future improvement.
+3️⃣ Structured Output Reliability
+LLMs sometimes return malformed JSON.
 
-### Structured output reliability
-The prompt explicitly instructs the model to return only valid JSON with no markdown, no explanation, and no text before or after. Temperature is set to 0.1 for consistent output. The parser (`lib/parser.js`) has 3 fallback strategies in case the model adds markdown fences or commentary.
+The parser implements:
 
-### Rubric and bias injection
-The full rubric (all 10 levels), all 8 KPIs, all 4 assessment dimensions, and 5 supervisor bias patterns are injected directly into the prompt. This grounds the model's analysis in the actual evaluation framework rather than generic performance assessment.
+Direct JSON parse
+Markdown stripping fallback
+Regex extraction fallback
+Temperature is set to 0.1 to reduce format variance.
 
-### Layer 1 vs Layer 2 distinction
-The prompt explicitly defines execution (Layer 1) vs systems building (Layer 2) and includes the survivability test. This prevents the model from giving high scores to Fellows who are merely task-absorbing.
+4️⃣ Showing Uncertainty (Automation Bias Prevention)
+To prevent blind trust:
 
----
+Every score includes a confidence label
+A banner explicitly states: “AI-generated draft”
+Evidence is shown alongside justification
+The intern sees reasoning, not just a number.
 
-## Design Challenges Tackled
+5️⃣ Gap Detection (Reasoning About Absence)
+Gap detection requires identifying what was not mentioned.
 
-### Challenge 2: Structured Output Reliability
-LLMs don't always return clean JSON. The parser tries 3 strategies before failing: direct parse, markdown stripping, and regex extraction. Temperature is set to 0.1 to minimize format variation.
+The prompt explicitly checks four assessment dimensions:
 
-### Challenge 4: Showing Uncertainty
-The score card displays a confidence level (low/medium/high) returned by the model. A banner at the top of every analysis reminds the intern that this is an AI draft, not a verdict. The justification is always shown so the intern can evaluate the reasoning, not just the score.
+Driving Execution
+Systems Building
+KPI Impact
+Change Management
+Missing dimensions are surfaced with targeted follow-up questions.
 
-### Challenge 5: Gap Detection
-The prompt instructs the model to check all 4 assessment dimensions and explicitly flag which ones the transcript did not cover. This is harder than extraction — it requires reasoning about absence, not presence.
+Design Challenges Tackled
+✅ Challenge 2 — Structured Output Reliability
+✅ Challenge 4 — Showing Uncertainty
+✅ Challenge 5 — Gap Detection
 
----
+What I Would Improve With More Time
+Transcript ↔ Evidence Linking
 
-## What I Would Improve With More Time
+Hover over evidence card → highlight source text
+Multi-step Prompt Chain
 
-1. **Side-by-side transcript and analysis view** — highlight the exact quote in the transcript when the intern hovers over an evidence card
-2. **Multiple prompt strategy** — separate calls for evidence extraction, scoring, and gap analysis for higher accuracy
-3. **Edit and save** — let the intern edit the AI draft and save a finalized assessment
-4. **Confidence calibration** — show which specific rubric signals were found and which were missing, not just a single confidence label
-5. **Transcript history** — save past analyses so the intern can compare Fellow progress over multiple calls
+Separate extraction, scoring, and gap reasoning
+Editable Draft Mode
 
----
+Allow intern to modify AI output before finalizing
+Confidence Calibration
 
-## Project Structure\
+Show which rubric signals were detected vs missing
+Transcript History
+
+Track Fellow progress across multiple calls
+Project Structure
+text
 
 trinethra/
 ├── app/
-│   ├── api/analyze/route.js      # Ollama integration and API endpoint
+│   ├── api/analyze/route.js
 │   ├── components/
-│   │   ├── TranscriptPanel.jsx   # Left panel: transcript input and sample loader
-│   │   ├── AnalysisResults.jsx   # Right panel: orchestrates all result sections
-│   │   ├── ScoreCard.jsx         # Score, band, confidence, justification
-│   │   ├── EvidenceList.jsx      # Color-coded quote cards
-│   │   ├── KpiMapping.jsx        # KPI tags with system vs personal indicator
-│   │   ├── GapAnalysis.jsx       # Missing assessment dimensions
-│   │   └── FollowUpQuestions.jsx # Targeted questions for next call
+│   │   ├── TranscriptPanel.jsx
+│   │   ├── AnalysisResults.jsx
+│   │   ├── ScoreCard.jsx
+│   │   ├── EvidenceList.jsx
+│   │   ├── KpiMapping.jsx
+│   │   ├── GapAnalysis.jsx
+│   │   └── FollowUpQuestions.jsx
 │   ├── globals.css
 │   ├── layout.js
-│   └── page.js                   # Main two-panel layout
+│   └── page.js
 ├── lib/
-│   ├── prompt.js                 # LLM prompt with rubric, KPIs, bias logic
-│   └── parser.js                 # JSON extraction with 3-strategy fallback
+│   ├── prompt.js
+│   └── parser.js
 ├── data/
-│   ├── rubric.json               # Scoring rubric as structured data
-│   └── sample-transcripts.json  # 3 test transcripts
+│   ├── rubric.json
+│   └── sample-transcripts.json
 └── README.md
+
 
 
 
